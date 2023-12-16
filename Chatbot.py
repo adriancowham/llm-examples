@@ -1,29 +1,61 @@
 from openai import OpenAI
 import streamlit as st
+import time 
+import requests
+import json 
 
-with st.sidebar:
-    openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
-    "[Get an OpenAI API key](https://platform.openai.com/account/api-keys)"
-    "[View the source code](https://github.com/streamlit/llm-examples/blob/main/Chatbot.py)"
-    "[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/streamlit/llm-examples?quickstart=1)"
+st.set_page_config(initial_sidebar_state="collapsed")
 
-st.title("💬 Chatbot")
-st.caption("🚀 A streamlit chatbot powered by OpenAI LLM")
+st.markdown(
+    """
+<style>
+    [data-testid="collapsedControl"] {
+        display: none
+    }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+st.title("Do things that don't Scale")
+st.caption("By Paul Graham")
 if "messages" not in st.session_state:
-    st.session_state["messages"] = [{"role": "assistant", "content": "How can I help you?"}]
+    st.session_state["messages"] = []
 
 for msg in st.session_state.messages:
     st.chat_message(msg["role"]).write(msg["content"])
 
-if prompt := st.chat_input():
-    if not openai_api_key:
-        st.info("Please add your OpenAI API key to continue.")
-        st.stop()
+if prompt := st.chat_input("Ask PG"):
+    start = time.perf_counter()
 
-    client = OpenAI(api_key=openai_api_key)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
-    response = client.chat.completions.create(model="gpt-3.5-turbo", messages=st.session_state.messages)
-    msg = response.choices[0].message.content
-    st.session_state.messages.append({"role": "assistant", "content": msg})
-    st.chat_message("assistant").write(msg)
+    resp = requests.request(
+        method="POST",
+        url="http://api.canonical.chat/api/v1/demo",
+        stream=True,
+        headers={
+            "Content-Type": "application/vnd.api+json",
+        },
+        data=json.dumps(
+            {
+                "data": {
+                    "type": "DemoAPIView",
+                    "attributes": {
+                        "query": prompt,
+                        "corpus_id": "469c3636-b9e1-4b5e-8312-463012295af1",
+                    },
+                }
+            }
+        ),
+        allow_redirects=False,
+    )    
+    finish = time.perf_counter()
+    duration = finish - start
+    st.write(resp)
+    st.write(f"The request took {round(duration, 3)} seconds to run.")
+    # client = OpenAI(api_key="")
+    # st.session_state.messages.append({"role": "user", "content": prompt})
+    # st.chat_message("user").write(prompt)
+    # response = client.chat.completions.create(model="gpt-3.5-turbo", messages=st.session_state.messages)
+    # msg = response.choices[0].message.content
+    # st.session_state.messages.append({"role": "assistant", "content": msg})
+    # st.chat_message("assistant").write(msg)
