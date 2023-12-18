@@ -128,21 +128,81 @@ class Event(object):
 host = os.environ.get("CANONICAL_HOST", "http://localhost:8000/")
 api_url = host + "api/v1/demo"
 
-st.set_page_config(initial_sidebar_state="collapsed")
+with st.sidebar:
+    st.markdown(
+        """
+# Canonical Semantic Cache
+## How to integrate with your app
+- Set the OpenAI base URL.
+- Set Canonical API key.
+- Choose your bucket.
+
+Here's an example.
+
+```python
+import httpx
+import openai
+import os
+
+    client = openai.OpenAI(
+    base_url=os.environ.get("CANONICAL_CACHE_HOST", None),
+    api_key=os.environ.get("OPENAI_API_KEY", None),
+    http_client=httpx.Client(
+        headers={
+            "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
+
+            # Required - The name of the bucket you want to use. Think of a bucket as a namespace.
+            # You can have one per app, or one per user, or one per whatever you want. It's
+            # logical scoping of LLM request, use it however makes sense for your app.
+            "X-Canonical-Bucket": os.environ.get("CANONICAL_CACHE_BUCKET", None),
+
+            # Optional - Default is false. If true the request will will bypass the cache and go straight to the LLM.
+            "X-Canonical-Skip-Cache": "False",
+
+            # Optional - Default is None. The maximum age of the cache entry in seconds.
+            # If the cache entry is older than this value, the cache will be bypassed and the request will go
+            # straight to the LLM. Subsequently, the matching entry (if one exists) will be refreshed.
+            "X-Canonical-Age": None,
+
+            # Optional - Default is "False". If true, on a cache hit, the response will be rephrased using our local LLM.
+            # This is useful if you want to avoid sending the same response to the user.
+            "X-Canonical-Rephrase": "False",
+        },
+    ),
+)
+```
+Then use the OpenAI client as you normally would.
+```python
+client.chat.completions.create(...)
+```
+We pass back a fiew pieces of information in the response headers. They are:
+- `X-Canonical-Cache-Hit`: True or False
+- `X-Canonical-Cache-Score`: The similarity score (0 - 1.0) of the closest match
+- More to be add soon
+
+Interested in trying it out or want to learn more about how it works?
+Contact us at
+
+[adrian@canonical.chat](mailto:adrian@canonical.chat)
+
+[tom@canonical.chat](mailto:tom@canonical.chat)
+
+For a more prompt response, text us at [(707) 344 - 0840](tel:7073440840).
+"""
+    )
 
 st.markdown(
     """
-<style>
-    [data-testid="collapsedControl"] {
-        display: none
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# Canonical Semantic Cache Demo
+## Do Things That Don't Scale
+By Paul Graham
 
-st.title("Do things that don't Scale")
-st.caption("By Paul Graham")
+Ask PG a question, then asking a similar one to see how the cache works.
+Or ask him a dissimilar one, I don't care.
+
+Shot out to PG for writing this essay. It's a classic. Thank you. :hearts:
+"""
+)
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
@@ -189,7 +249,7 @@ if prompt := st.chat_input("Ask PG"):
             full_response += event.data
             message_placeholder.markdown(full_response)
         full_response += "\n\nCache hit: " + resp.headers.get(
-            "X-Canonical-Cache-Hit", False
+            "X-Canonical-Cache-Hit", "False"
         )
         full_response += f"\n\nThe request took {round(duration, 3)} seconds."
         message_placeholder.markdown(full_response)
