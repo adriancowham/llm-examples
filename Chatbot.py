@@ -187,6 +187,8 @@ Contact us at
 
 [tom@canonical.chat](mailto:tom@canonical.chat)
 
+Or book a meeting with us [here](https://calendly.com/tom-tule/30min).
+
 For a more prompt response, text us at [(707) 344 - 0840](tel:7073440840).
 """
     )
