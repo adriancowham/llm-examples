@@ -4,6 +4,7 @@ import requests
 import json
 import os
 import logging
+from openai.types.chat import ChatCompletionChunk
 
 _FIELD_SEPARATOR = ":"
 
@@ -248,8 +249,10 @@ if prompt := st.chat_input("Ask PG"):
         duration = finish - start
         sseclient = SSEClient(resp)
         for event in sseclient.events():
-            full_response += event.data
-            message_placeholder.markdown(full_response)
+            chunk = ChatCompletionChunk(**json.loads(event.data))
+            if chunk.choices[0].delta.content is not None:
+                full_response += chunk.choices[0].delta.content
+                message_placeholder.markdown(full_response)
         full_response += "\n\nCache hit: " + resp.headers.get(
             "X-Canonical-Cache-Hit", "False"
         )
