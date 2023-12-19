@@ -248,14 +248,16 @@ if prompt := st.chat_input("Ask PG"):
         finish = time.perf_counter()
         duration = finish - start
         sseclient = SSEClient(resp)
+        full_response += "\n\nCache hit: " + resp.headers.get(
+            "X-Canonical-Cache-Hit", "False"
+        )
+        latency = resp.headers.get("X-Canonical-Cache-Latency", None)
+        if latency is not None:
+            full_response += f", {round(float(latency), 3)} seconds.\n\n"
         for event in sseclient.events():
             chunk = ChatCompletionChunk(**json.loads(event.data))
             if chunk.choices[0].delta.content is not None:
                 full_response += chunk.choices[0].delta.content
                 message_placeholder.markdown(full_response)
-        full_response += "\n\nCache hit: " + resp.headers.get(
-            "X-Canonical-Cache-Hit", "False"
-        )
-        full_response += f"\n\nThe request took {round(duration, 3)} seconds."
         message_placeholder.markdown(full_response)
     st.session_state.messages.append({"role": "assistant", "content": full_response})
