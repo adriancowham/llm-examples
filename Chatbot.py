@@ -158,7 +158,6 @@ import os
 
     client = openai.OpenAI(
     base_url=os.environ.get("CANONICAL_CACHE_HOST", None),
-    api_key=os.environ.get("OPENAI_API_KEY", None),
     http_client=httpx.Client(
         headers={
             "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
