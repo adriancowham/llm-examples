@@ -166,33 +166,61 @@ import os
             # Required - The name of the bucket you want to use. Think of a bucket as a namespace.
             # You can have one per app, or one per user, or one per whatever you want. It's
             # logical scoping of LLM request, use it however makes sense for your app.
-            "X-Canonical-Bucket": os.environ.get("CANONICAL_CACHE_BUCKET", None),
-
-            # Optional - Default is false. If true the request will will bypass the cache and go straight to the LLM.
-            "X-Canonical-Skip-Cache": "False",
-
-            # Optional - Default is None. The maximum age of the cache entry in seconds.
-            # If the cache entry is older than this value, the cache will be bypassed and the request will go
-            # straight to the LLM. Subsequently, the matching entry (if one exists) will be refreshed.
-            "X-Canonical-Age": None,
-
-            # Optional - Default is "False". If true, on a cache hit, the response will be rephrased using our local LLM.
-            # This is useful if you want to avoid sending the same response to the user.
-            "X-Canonical-Rephrase": "False",
+            "X-Canonical-Cache-Bucket": os.environ.get("CANONICAL_CACHE_BUCKET", None),
         },
     ),
 )
 ```
-Then use the OpenAI client as you normally would.
+Then use the OpenAI client as you normally would. But please note, we currently return a 404 if a match
+isn't found.
 ```python
-client.chat.completions.create(...)
+try:
+    completion = client.chat.completions.create(...)
+except openai.NotFoundError as e:
+    # do something
+```
+Here's how to update the Cache:
+```python
+requests.request(
+    method="POST",
+    url=f"{os.environ.get('CANONICAL_CACHE_HOST', None)}api/v1/cache",
+    headers={
+        "Content-Type": "application/json",
+        "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
+    },
+    data=json.dumps({
+        "bucket": <bucket_name>,
+        "messages": msglist,
+    })
+)
+```
+Take note of the path in the URL, `api/v1/cache`. The body is a JSON object with two keys:
+- `bucket`: The name of the bucket you want to update.
+- `messages`: A list of messages. Each message is a JSON object with two keys:
+    - `role`: The role of the message. Either `system`, `user`, `assistant`, `function`, `function_result`, etc....
+    - `content`: The content of the message.
+Here is an example of a valid request body:
+```json
+{
+    "bucket": "my_bucket",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Hello, how are you?"
+        },
+        {
+            "role": "assistant",
+            "content": "I'm doing well, how are you?"
+        },
+    ]
+}
 ```
 We pass back a fiew pieces of information in the response headers. They are:
 - `X-Canonical-Cache-Hit`: True or False
 - `X-Canonical-Cache-Score`: The similarity score (0 - 1.0) of the closest match
 - More to be add soon
 """
-    )
+)
 
 st.markdown(
     """
