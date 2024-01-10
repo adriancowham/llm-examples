@@ -157,7 +157,7 @@ import openai
 import os
 
     client = openai.OpenAI(
-    base_url=os.environ.get("CANONICAL_CACHE_HOST", None),
+    base_url="https://cache.canonical.chat/",
     http_client=httpx.Client(
         headers={
             "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
@@ -182,7 +182,7 @@ Here's how to update the Cache:
 ```python
 requests.request(
     method="POST",
-    url=f"{os.environ.get('CANONICAL_CACHE_HOST', None)}api/v1/cache",
+    url="https://cache.canonical.chat/api/v1/cache",
     headers={
         "Content-Type": "application/json",
         "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
