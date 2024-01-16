@@ -238,11 +238,6 @@ Or ask him a dissimilar one, I don't care.
 Shot out to PG for writing this essay. It's a classic. Thank you. :hearts:
 """
 )
-st.checkbox(
-    "Enable slower, but more accurate semantic evaluation.",
-    value=False,
-    key="accurate_matching",
-)
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
@@ -267,7 +262,7 @@ if prompt := st.chat_input("Ask PG"):
             stream=True,
             headers={
                 "Content-Type": "application/vnd.api+json",
-                "X-Canonical-Cache-L2": str(st.session_state.accurate_matching).lower(),
+                "X-Canonical-Cache-L2": "true",
                 "X-Canonical-Cache-Bucket": st.session_state.session_id,
             },
             data=json.dumps(
