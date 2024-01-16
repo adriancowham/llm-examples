@@ -293,7 +293,9 @@ if prompt := st.chat_input("Ask PG"):
         )
         latency = resp.headers.get("X-Canonical-Cache-Latency", None)
         if latency is not None:
-            full_response += f", {round(float(latency), 3)} seconds.\n\n"
+            full_response += (
+                f". Time to first token: {round(float(latency), 3)} seconds.\n\n"
+            )
         for event in sseclient.events():
             chunk = ChatCompletionChunk(**json.loads(event.data))
             if chunk.choices[0].delta.content is not None:
