@@ -141,13 +141,9 @@ with st.sidebar:
 Interested in trying it out or want to learn more about how it works?
 Contact us at
 
-[adrian@canonical.chat](mailto:adrian@canonical.chat)
-
-[tom@canonical.chat](mailto:tom@canonical.chat)
+[founders@canonical.chat](mailto:founders@canonical.chat)
 
 Or book a meeting with us [here](https://calendly.com/tom-tule/30min).
-
-For a more prompt response, text us at [(707) 344 - 0840](tel:7073440840).
 
 ## How to integrate with your app
 - Set the OpenAI base URL.
@@ -222,7 +218,7 @@ Here is an example of a valid request body:
 We pass back a fiew pieces of information in the response headers. They are:
 - `X-Canonical-Cache-Hit`: True or False
 - `X-Canonical-Cache-Score`: The similarity score (0 - 1.0) of the closest match
-- More to be add soon
+- More to be added soon
 """
     )
 
