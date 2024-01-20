@@ -231,7 +231,7 @@ By Paul Graham
 Ask PG a question, then asking a similar one to see how the cache works.
 Or ask him a dissimilar one, I don't care.
 
-Shot out to PG for writing this essay.
+Shout out to PG for writing this essay.
 """
 )
 
