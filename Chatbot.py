@@ -1,138 +1,17 @@
 import streamlit as st
 import time
-import requests
-import json
 import os
-import logging
-from openai.types.chat import ChatCompletionChunk
-import uuid
+import requests
+import openai
+import httpx
+import json
 
-_FIELD_SEPARATOR = ":"
+SYSTEM_PROMPT = """Assume the persona of Paul Graham, the co-founder of Y Combinator and the author of the influential essay
+'Do Things That Don't Scale.' You are known for your insightful advice to startups and your unique
+perspective on entrepreneurship. Respond to the following queries with the depth of understanding
+and the conversational yet insightful style characteristic of your essays, especially drawing upon
+the ideas from 'Do Things That Don't Scale."""
 
-
-class SSEClient(object):
-    """Implementation of a SSE client.
-    See http://www.w3.org/TR/2009/WD-eventsource-20091029/ for the
-    specification.
-    """
-
-    def __init__(self, event_source, char_enc="utf-8"):
-        """Initialize the SSE client over an existing, ready to consume
-        event source.
-        The event source is expected to be a binary stream and have a close()
-        method. That would usually be something that implements
-        io.BinaryIOBase, like an httplib or urllib3 HTTPResponse object.
-        """
-        self._logger = logging.getLogger(self.__class__.__module__)
-        self._logger.debug("Initialized SSE client from event source %s", event_source)
-        self._event_source = event_source
-        self._char_enc = char_enc
-
-    def _read(self):
-        """Read the incoming event source stream and yield event chunks.
-        Unfortunately it is possible for some servers to decide to break an
-        event into multiple HTTP chunks in the response. It is thus necessary
-        to correctly stitch together consecutive response chunks and find the
-        SSE delimiter (empty new line) to yield full, correct event chunks."""
-        data = b""
-        for chunk in self._event_source:
-            for line in chunk.splitlines(True):
-                data += line
-                if data.endswith((b"\r\r", b"\n\n", b"\r\n\r\n")):
-                    yield data
-                    data = b""
-        if data:
-            yield data
-
-    def events(self):
-        for chunk in self._read():
-            event = Event()
-            # Split before decoding so splitlines() only uses \r and \n
-            for line in chunk.splitlines():
-                # Decode the line.
-                line = line.decode(self._char_enc)
-
-                # Lines starting with a separator are comments and are to be
-                # ignored.
-                if not line.strip() or line.startswith(_FIELD_SEPARATOR):
-                    continue
-
-                data = line.split(_FIELD_SEPARATOR, 1)
-                field = data[0]
-
-                # Ignore unknown fields.
-                if field not in event.__dict__:
-                    self._logger.debug(
-                        "Saw invalid field %s while parsing " "Server Side Event", field
-                    )
-                    continue
-
-                if len(data) > 1:
-                    # From the spec:
-                    # "If value starts with a single U+0020 SPACE character,
-                    # remove it from value."
-                    if data[1].startswith(" "):
-                        value = data[1][1:]
-                    else:
-                        value = data[1]
-                else:
-                    # If no value is present after the separator,
-                    # assume an empty value.
-                    value = ""
-
-                # The data field may come over multiple lines and their values
-                # are concatenated with each other.
-                if field == "data":
-                    event.__dict__[field] += value + "\n"
-                else:
-                    event.__dict__[field] = value
-
-            # Events with no data are not dispatched.
-            if not event.data:
-                continue
-
-            # If the data field ends with a newline, remove it.
-            if event.data.endswith("\n"):
-                event.data = event.data[0:-1]
-
-            # Empty event names default to 'message'
-            event.event = event.event or "message"
-
-            yield event
-
-    def close(self):
-        """Manually close the event source stream."""
-        self._event_source.close()
-
-
-class Event(object):
-    """Representation of an event from the event stream."""
-
-    def __init__(self, id=None, event="message", data="", retry=None):
-        self.id = id
-        self.event = event
-        self.data = data
-        self.retry = retry
-
-    def __str__(self):
-        s = "{0} event".format(self.event)
-        if self.id:
-            s += " #{0}".format(self.id)
-        if self.data:
-            s += ", {0} byte{1}".format(len(self.data), "s" if len(self.data) else "")
-        else:
-            s += ", no data"
-        if self.retry:
-            s += ", retry in {0}ms".format(self.retry)
-        return s
-
-
-host = os.environ.get("CANONICAL_HOST", "http://localhost:8000/")
-api_url = host + "api/v1/demo"
-
-if "session_id" not in st.session_state:
-    st.session_state.session_id = str(uuid.uuid4())
-    print(st.session_state.session_id)
 
 with st.sidebar:
     st.markdown(
@@ -235,11 +114,35 @@ Shout out to PG for writing this essay.
 """
 )
 
+
+def update_cache(messages):
+    return requests.request(
+        method="POST",
+        url=f"{os.environ.get('CANONICAL_CACHE_HOST', 'http://localhost:8001/')}api/v1/cache",
+        headers={
+            "Content-Type": "application/json",
+            "X-Canonical-Api-Key": os.environ.get("CANONICAL_CACHE_API_KEY", None),
+        },
+        data=json.dumps(
+            {
+                "bucket": "DEMO - PG",
+                "messages": messages,
+            }
+        ),
+    )
+
+
 if "messages" not in st.session_state:
-    st.session_state["messages"] = []
+    st.session_state["messages"] = [
+        {
+            "role": "system",
+            "content": SYSTEM_PROMPT,
+        }
+    ]
 
 for msg in st.session_state.messages:
-    st.chat_message(msg["role"]).write(msg["content"])
+    if msg["role"] != "system":
+        st.chat_message(msg["role"]).write(msg["content"])
 
 if prompt := st.chat_input("Ask PG"):
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -249,48 +152,80 @@ if prompt := st.chat_input("Ask PG"):
     start = time.perf_counter()
 
     with st.chat_message("assistant"):
-        full_response = ""
         message_placeholder = st.empty()
-
-        resp = requests.request(
-            method="POST",
-            url=api_url,
-            stream=True,
-            headers={
-                "Content-Type": "application/vnd.api+json",
-                "X-Canonical-Cache-L2": "true",
-                "X-Canonical-Cache-Bucket": st.session_state.session_id,
-            },
-            data=json.dumps(
-                {
-                    "data": {
-                        "type": "DemoAPIView",
-                        "attributes": {
-                            "query": prompt,
-                            "corpus_id": os.environ.get(
-                                "CORPUS_ID", "469c3636-b9e1-4b5e-8312-463012295af1"
-                            ),
-                        },
-                    }
+        client = openai.OpenAI(
+            base_url=os.environ.get("CANONICAL_CACHE_HOST", None),
+            api_key=os.environ.get("CANONICAL_CACHE_API_KEY", None),
+            http_client=httpx.Client(
+                headers={
+                    "X-Canonical-Api-Key": os.environ.get(
+                        "CANONICAL_CACHE_API_KEY", None
+                    ),
+                    "X-Canonical-Cache-Bucket": "DEMO - PG",
                 }
             ),
-            allow_redirects=False,
         )
+        cache_hit = False
+        start = time.perf_counter()
+        try:
+            completion = client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                stream=True,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+            )
+            cache_hit = True
+        except openai.NotFoundError as e:
+            client = openai.OpenAI(
+                api_key=os.environ.get("OPENAI_API_KEY", None),
+            )
+            completion = client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                stream=True,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT,
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                ],
+            )
         finish = time.perf_counter()
         duration = finish - start
-        sseclient = SSEClient(resp)
-        full_response += "\n\nCache hit: " + resp.headers.get(
-            "X-Canonical-Cache-Hit", "False"
-        )
-        latency = resp.headers.get("X-Canonical-Cache-Latency", None)
-        if latency is not None:
-            full_response += (
-                f". Time to first token: {round(float(latency), 3)} seconds.\n\n"
-            )
-        for event in sseclient.events():
-            chunk = ChatCompletionChunk(**json.loads(event.data))
+        metrics = ""
+        metrics += f"\n\nCache hit: {str(cache_hit)}"
+        metrics += f"\n\nTime to first token: {round(duration, 3)} seconds.\n\n"
+
+        full_response = ""
+        for chunk in completion:
             if chunk.choices[0].delta.content is not None:
                 full_response += chunk.choices[0].delta.content
-                message_placeholder.markdown(full_response)
-        message_placeholder.markdown(full_response)
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                message_placeholder.markdown(metrics + full_response)
+
+        if not cache_hit:
+            update_cache(
+                [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    },
+                    {
+                        "role": "assistant",
+                        "content": full_response,
+                    },
+                ]
+            )
+    st.session_state.messages.append(
+        {"role": "assistant", "content": metrics + full_response}
+    )
