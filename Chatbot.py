@@ -5,6 +5,7 @@ import requests
 import openai
 import httpx
 import json
+import uuid
 
 SYSTEM_PROMPT = """Assume the persona of Paul Graham, the co-founder of Y Combinator and the author of the influential essay
 'Do Things That Don't Scale.' You are known for your insightful advice to startups and your unique
@@ -113,6 +114,8 @@ Or ask him a dissimilar one, I don't care.
 Shout out to PG for writing this essay.
 """
 )
+if st.session_state.get("bucket", None) is None:
+    st.session_state["bucket"] = "DEMO - PG " + str(uuid.uuid4())
 
 
 def update_cache(messages):
@@ -125,7 +128,7 @@ def update_cache(messages):
         },
         data=json.dumps(
             {
-                "bucket": "DEMO - PG",
+                "bucket": st.session_state["bucket"],
                 "messages": messages,
             }
         ),
@@ -161,7 +164,8 @@ if prompt := st.chat_input("Ask PG"):
                     "X-Canonical-Api-Key": os.environ.get(
                         "CANONICAL_CACHE_API_KEY", None
                     ),
-                    "X-Canonical-Cache-Bucket": "DEMO - PG",
+                    "X-Canonical-Cache-Bucket": st.session_state["bucket"],
+                    "X-Canonical-Cache-Guidance": "user",
                 }
             ),
         )
@@ -190,6 +194,7 @@ if prompt := st.chat_input("Ask PG"):
             completion = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 stream=True,
+                max_tokens=128,
                 messages=[
                     {
                         "role": "system",
