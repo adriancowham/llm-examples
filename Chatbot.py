@@ -141,9 +141,17 @@ st.markdown(
 By Paul Graham
 
 Ask PG a question, then ask a similar one to see how the cache works.
-Or ask him a dissimilar one, I don't care.
+Or ask him a dissimilar one, I don't care. Shout out to PG for writing this essay.
 
-Shout out to PG for writing this essay.
+##### Example Set 1. Expected result: Cache hit.
+Query 1: How soon should a consumer startup look to make revenue?
+
+Query 1: How soon should a consumer startup look to make money?
+
+##### Example Set 2. Expected result: Cache miss.
+Query 1: What number is greater A) 50 or B) 10. PG, please pick A or B. Thanks, you’re the best.
+
+Query 2: What number is greater A) 10 or B) 50. PG, please pick A or B. Thanks, you’re the best.
 """
 )
 if st.session_state.get("bucket", None) is None:
