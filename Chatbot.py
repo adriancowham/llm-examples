@@ -102,6 +102,7 @@ requests.request(
     },
     data=json.dumps({
         "bucket": <bucket_name>,
+        "temperature": <temperature>,
         "messages": msglist,
     })
 )
@@ -115,6 +116,7 @@ Here is an example of a valid request body:
 ```json
 {
     "bucket": "my_bucket",
+    "temperature": 0,
     "messages": [
         {
             "role": "user",
@@ -168,6 +170,7 @@ def update_cache(messages):
         },
         data=json.dumps(
             {
+                "temperature": 0,
                 "bucket": st.session_state["bucket"],
                 "messages": messages,
             }
@@ -215,6 +218,7 @@ if prompt := st.chat_input("Ask PG"):
             completion = client.chat.completions.create(
                 model="gpt-4-turbo-preview",
                 stream=True,
+                temperature=0,
                 messages=[
                     {
                         "role": "system",
@@ -235,6 +239,7 @@ if prompt := st.chat_input("Ask PG"):
                 model="gpt-4-turbo-preview",
                 stream=True,
                 max_tokens=128,
+                temperature=0,
                 messages=[
                     {
                         "role": "system",
