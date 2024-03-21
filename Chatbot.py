@@ -157,7 +157,7 @@ Query 2: What number is greater A) 10 or B) 50. PG, please pick A or B. Thanks, 
 """
 )
 if st.session_state.get("bucket", None) is None:
-    st.session_state["bucket"] = "DEMO - PG " + str(uuid.uuid4())
+    st.session_state["bucket"] = "DEMO - PG"
 
 
 def update_cache(messages):
